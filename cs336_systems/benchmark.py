@@ -36,6 +36,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--batch-size", type=int, default=4)
     parser.add_argument("--warmup-steps", type=int, default=5)
     parser.add_argument("--measure-steps", type=int, default=10)
+    parser.add_argument("--memory_profiling", type=bool, default = True)
     parser.add_argument(
         "--mode",
         type=str,
@@ -101,9 +102,13 @@ def benchmark():
 
         if args.device == "cuda":
             torch.cuda.synchronize()
-    
+    if args.memory_profiling:
+        torch.cuda.memory._record_memory_history(max_entries=1000000)
     for _ in range(args.warmup_steps):
         run_step()
+    if args.memory_profiling:
+        torch.cuda.memory._dump_snapshot("memory_snapshot.pickle")
+        torch.cuda.memory._record_memory_history(enabled=None)
 
     times = []
     for _ in range(args.warmup_steps):
