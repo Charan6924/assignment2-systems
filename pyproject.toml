@@ -32,8 +32,12 @@ package = true
 python-preference = "managed"
 
 [tool.uv.sources]
-cs336-basics = { path = "./cs336-basics", editable = true } # Change this path to your assignment1-basics repo you want to use your own implementation!
-
+cs336-basics = { path = "./cs336-basics", editable = true }
+torch = { index = "pytorch-cu128" }
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
 [tool.pytest.ini_options]
 log_cli = true
 log_cli_level = "WARNING"
