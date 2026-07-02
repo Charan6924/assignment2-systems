@@ -8,7 +8,7 @@ SEQ_LENS = [256, 1024, 4096, 8192, 16384]  # sequence lengths
 WARMUP = 5
 MEASURE = 100
 DEVICE = "cuda"
-
+compiled_attention = torch.compile(scaled_dot_product_attention)
 results = []
 
 def benchmark():
@@ -23,14 +23,14 @@ def benchmark():
             try:
                 # warmup
                 for _ in range(WARMUP):
-                    out = scaled_dot_product_attention(Q, K, V)
+                    out = compiled_attention(Q, K, V)
                     torch.cuda.synchronize()
 
                 # benchmark forward
                 fwd_times = []
                 for _ in range(MEASURE):
                     start = timeit.default_timer()
-                    out = scaled_dot_product_attention(Q, K, V)
+                    out = compiled_attention(Q, K, V)
                     torch.cuda.synchronize()
                     fwd_times.append(timeit.default_timer() - start)
 
@@ -42,7 +42,7 @@ def benchmark():
                 # benchmark backward
                 bwd_times = []
                 for _ in range(MEASURE):
-                    out = scaled_dot_product_attention(Q, K, V)
+                    out = compiled_attention(Q, K, V)
                     torch.cuda.synchronize()
                     start = timeit.default_timer()
                     out.sum().backward()

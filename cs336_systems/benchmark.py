@@ -72,6 +72,7 @@ def benchmark():
         params.rope_theta,
     )
     model.to(args.device)
+    torch.compile(model)
     data = torch.randint(
         0, params.vocab_size,
         (args.batch_size, params.context_length),
