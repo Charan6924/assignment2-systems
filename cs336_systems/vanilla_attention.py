@@ -55,4 +55,58 @@ class PytorchFlashAttention(torch.autograd.Function):
 
     @staticmethod
     def backward(ctx, dO):
-        raise NotImplementedError
+        Q, K, V, O, L = ctx.saved_tensors
+        is_causal = ctx.is_causal
+        Nq = Q.shape[-2]
+        Nk = K.shape[-2]
+        Dk = Q.shape[-1]
+        Bq = 16
+        Bk = 16
+        q_tiles = triton.cdiv(Nq, Bq)
+        kv_tiles = triton.cdiv(Nk, Bk)
+        scale = Dk ** 0.5
+
+        dQ = torch.zeros_like(Q)
+        dK = torch.zeros_like(K)
+        dV = torch.zeros_like(V)
+
+        D = torch.sum(dO * O, dim=-1)
+
+        for i in range(q_tiles):
+            start_q = i * Bq
+            end_q = min(start_q + Bq, Nq)
+            Qi = Q[..., start_q:end_q, :]
+            Oi = O[..., start_q:end_q, :]
+            dOi = dO[..., start_q:end_q, :]
+            Li = L[..., start_q:end_q]
+            Di = D[..., start_q:end_q]
+
+            dQi = torch.zeros_like(Qi)
+
+            for j in range(kv_tiles):
+                start_k = j * Bk
+                end_k = min(start_k + Bk, Nk)
+                Kj = K[..., start_k:end_k, :]
+                Vj = V[..., start_k:end_k, :]
+
+                Sij = (Qi @ Kj.transpose(-2, -1)) / scale
+                Pij = torch.exp(Sij - Li[..., None])
+
+                dVj = Pij.transpose(-2, -1) @ dOi
+                dPij = dOi @ Vj.transpose(-2, -1)
+                dSij = Pij * (dPij - Di[..., None])
+
+                dQi += dSij @ Kj / scale
+                dKj = dSij.transpose(-2, -1) @ Qi / scale
+
+                dK[..., start_k:end_k, :] += dKj
+                dV[..., start_k:end_k, :] += dVj
+
+            dQ[..., start_q:end_q, :] = dQi
+
+        return dQ, dK, dV, None
+
+
+
+        
+
