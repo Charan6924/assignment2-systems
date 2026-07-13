@@ -35,9 +35,6 @@ class DDP(nn.Module):
             handle.wait()
             param.grad /= world_size
         self._handles.clear()
-        
-        
-
 
 def get_ddp(module: torch.nn.Module) -> torch.nn.Module:
     return DDP(module)
